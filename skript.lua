@@ -1,9 +1,8 @@
 -- ============================================================
--- Blox Fruits NPC Teleporter (Рабочая версия)
--- Delta Executor | Интерфейс на русском
+-- Blox Fruits NPC Teleporter (Финальная версия для Delta)
 -- ============================================================
 
--- Загрузка Rayfield (безопасная, без getgenv)
+-- Загрузка Rayfield без getgenv и лишних проверок на первой строке
 local success, Rayfield = pcall(function()
     return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 end)
@@ -37,12 +36,12 @@ print("[Blox Fruits TP] Определено море: " .. ТекущееМор
 local Окно = Rayfield:CreateWindow({
     Name = "Blox Fruits | Телепорт к NPC",
     LoadingTitle = "Загрузка...",
-    LoadingSubtitle = "рабочая версия",
+    LoadingSubtitle = "финальная версия",
     ConfigurationSaving = { Enabled = false },
     KeySystem = false
 })
 
--- Функция поиска NPC с расширенной проверкой
+-- Функция поиска NPC
 local function НайтиNPC(имяNPC)
     local найденные = {}
     for _, объект in ipairs(workspace:GetDescendants()) do
@@ -74,7 +73,6 @@ local function Телепортироваться(имяNPC)
         return
     end
 
-    -- Берем первый найденный объект с HumanoidRootPart
     local цель = найденные[1]
     local позицияNPC
     local ok, err = pcall(function()
@@ -84,7 +82,6 @@ local function Телепортироваться(имяNPC)
         позицияNPC = цель.HumanoidRootPart.Position
     end
 
-    -- Смещение: 8 стадов по оси Z (можно изменить)
     local точка = позицияNPC + Vector3.new(0, 0, 8)
 
     игрок.Character.HumanoidRootPart.CFrame = CFrame.new(точка)
@@ -96,7 +93,7 @@ local function Телепортироваться(имяNPC)
     print("[Blox Fruits TP] Телепорт к " .. имяNPC .. " выполнен.")
 end
 
--- Создание вкладки со списком NPC
+-- Создание вкладки
 local function СоздатьВкладку(название, список)
     local Вкладка = Окно:CreateTab(название, 4483362458)
     Вкладка:CreateSection("Телепорт к NPC (появитесь рядом)")
@@ -109,7 +106,7 @@ local function СоздатьВкладку(название, список)
     end
 end
 
--- Списки NPC (сокращенные для стабильности)
+-- Списки NPC
 local NPC1 = {
     "Boat Dealer", "Blox Fruit Dealer", "Weapon Dealer", "Home Point",
     "Sword Dealer", "Pirate Recruiter", "Marine Recruiter",
