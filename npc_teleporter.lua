@@ -1,5 +1,5 @@
 -- ============================================================
--- Blox Fruits Free Fly & NPC Teleporter
+-- Blox Fruits Free Fly & NPC Teleporter (Fixed Syntax)
 -- ============================================================
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -54,9 +54,18 @@ local bodyGyro = nil
 
 local function StopFly()
     isFlying = false
-    if flyConnection then flyConnection:Disconnect() end
-    if bodyVelocity then bodyVelocity:Destroy() end
-    if bodyGyro then bodyGyro:Destroy() end
+    if flyConnection then 
+        flyConnection:Disconnect() 
+        flyConnection = nil
+    end
+    if bodyVelocity then 
+        bodyVelocity:Destroy() 
+        bodyVelocity = nil
+    end
+    if bodyGyro then 
+        bodyGyro:Destroy() 
+        bodyGyro = nil
+    end
     
     local player = game.Players.LocalPlayer
     if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
@@ -71,6 +80,8 @@ local function StartFly()
         SafeNotify("Error", "Character not found.", 3)
         return
     end
+
+    if isFlying then StopFly() end
 
     isFlying = true
     local hrp = player.Character.HumanoidRootPart
@@ -89,7 +100,12 @@ local function StartFly()
     bodyGyro.Parent = hrp
 
     flyConnection = RunService.RenderStepped:Connect(function()
-        if not isFlying then return end
+        -- Защита от вылета, если персонаж умер или исчез
+        if not isFlying or not hrp or not hrp.Parent then 
+            if isFlying then StopFly() end
+            return 
+        end
+        
         local cam = workspace.CurrentCamera
         local moveDir = Vector3.zero
 
@@ -108,7 +124,7 @@ local function StartFly()
 
         bodyGyro.CFrame = cam.CFrame
     end)
-    SafeNotify("Fly", "Flight Enabled! (WASD to move, Space/Shift for up/down)", 5)
+    SafeNotify("Fly", "Flight Enabled! (WASD, Space/Shift)", 5)
 end
 
 -- Вкладка настроек полета
@@ -126,7 +142,7 @@ FlyTab:CreateToggle({
 
 FlyTab:CreateSlider({
     Name = "Fly Speed",
-    Range = [50, 300],
+    Range = {50, 300}, -- ИСПРАВЛЕНО: теперь фигурные скобки
     Increment = 10,
     Suffix = " studs/s",
     CurrentValue = 100,
@@ -137,7 +153,7 @@ FlyTab:CreateSlider({
 })
 
 -- ============================================================
--- ТЕЛЕПОРТ К NPC (ОСТАВЛЯЕМ ДЛЯ УДОБСТВА)
+-- ТЕЛЕПОРТ К NPC
 -- ============================================================
 local function FindNPC(npcName)
     local foundNpcs = {}
@@ -169,7 +185,7 @@ end
 
 local function CreateNPCTab(tabName, npcList)
     local Tab = Window:CreateTab(tabName, 4483362458)
-    Tab:CreateSection("Instant TP to NPC (If Loaded)")
+    Tab:CreateSection("Instant TP (If Loaded)")
 
     for _, name in ipairs(npcList) do
         Tab:CreateButton({
