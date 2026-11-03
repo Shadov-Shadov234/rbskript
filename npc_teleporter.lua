@@ -1,15 +1,15 @@
 -- ============================================================
--- Blox Fruits NPC & Island Mover (Solix-style TP & TpWalk)
+-- Blox Fruits Free Fly & NPC Teleporter
 -- ============================================================
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 if not Rayfield then
     warn("[Blox Fruits TP] Error: Rayfield failed to load.")
     return
 end
-
-local TweenService = game:GetService("TweenService")
 
 local function SafeNotify(title, text, duration)
     print("[" .. title .. "] " .. text)
@@ -36,96 +36,109 @@ else
 end
 
 local Window = Rayfield:CreateWindow({
-    Name = "Blox Fruits | Solix-style Mover",
+    Name = "Blox Fruits | Fly & Teleport",
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "TP & TpWalk",
+    LoadingSubtitle = "Free Fly Update",
     ConfigurationSaving = { Enabled = false },
     KeySystem = false
 })
 
 -- ============================================================
--- НАСТРОЙКИ ПЕРЕМЕЩЕНИЯ
+-- ЛОГИКА СВОБОДНОГО ПОЛЕТА
 -- ============================================================
-local UseTpWalk = false -- По умолчанию мгновенный телепорт (как в Solix)
-local WalkSpeed = 200   -- Скорость для TpWalk
+local isFlying = false
+local flySpeed = 100
+local flyConnection = nil
+local bodyVelocity = nil
+local bodyGyro = nil
 
-local SettingsTab = Window:CreateTab("Settings", 4483362458)
-SettingsTab:CreateSection("Movement Mode")
-
-SettingsTab:CreateToggle({
-    Name = "Enable TpWalk (Smooth Fly)",
-    CurrentValue = false,
-    Flag = "TpWalkToggle",
-    Callback = function(Value)
-        UseTpWalk = Value
-        SafeNotify("Mode Changed", UseTpWalk and "TpWalk Enabled" or "Instant TP Enabled", 3)
-    end,
-})
-
-SettingsTab:CreateSlider({
-    Name = "TpWalk Speed",
-    Range = [50, 400],
-    Increment = 10,
-    Suffix = " studs/s",
-    CurrentValue = 200,
-    Flag = "WalkSpeed",
-    Callback = function(Value)
-        WalkSpeed = Value
-    end,
-})
-
--- ============================================================
--- ЛОГИКА ПЕРЕМЕЩЕНИЯ
--- ============================================================
-
--- Мгновенный телепорт (Solix Style)
-local function InstantTP(targetPos)
+local function StopFly()
+    isFlying = false
+    if flyConnection then flyConnection:Disconnect() end
+    if bodyVelocity then bodyVelocity:Destroy() end
+    if bodyGyro then bodyGyro:Destroy() end
+    
     local player = game.Players.LocalPlayer
     if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
-        return true
+        player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
     end
-    return false
+    SafeNotify("Fly", "Flight Disabled", 3)
 end
 
--- Плавный полёт (TpWalk)
-local function TpWalk(targetPos)
+local function StartFly()
     local player = game.Players.LocalPlayer
     if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-        return false
+        SafeNotify("Error", "Character not found.", 3)
+        return
     end
 
+    isFlying = true
     local hrp = player.Character.HumanoidRootPart
-    local distance = (hrp.Position - targetPos).Magnitude
-    local travelTime = distance / WalkSpeed
 
-    hrp.Anchored = true
-    local tweenInfo = TweenInfo.new(travelTime, Enum.EasingStyle.Linear)
-    local goal = {CFrame = CFrame.new(targetPos)}
-    local tween = TweenService:Create(hrp, tweenInfo, goal)
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.Name = "FlyBV"
+    bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    bodyVelocity.Velocity = Vector3.zero
+    bodyVelocity.Parent = hrp
 
-    tween:Play()
-    tween.Completed:Connect(function()
-        hrp.Anchored = false
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.Name = "FlyBG"
+    bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+    bodyGyro.P = 1000
+    bodyGyro.D = 50
+    bodyGyro.Parent = hrp
+
+    flyConnection = RunService.RenderStepped:Connect(function()
+        if not isFlying then return end
+        local cam = workspace.CurrentCamera
+        local moveDir = Vector3.zero
+
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+
+        if moveDir.Magnitude > 0 then
+            bodyVelocity.Velocity = moveDir.Unit * flySpeed
+        else
+            bodyVelocity.Velocity = Vector3.zero
+        end
+
+        bodyGyro.CFrame = cam.CFrame
     end)
-
-    return true
+    SafeNotify("Fly", "Flight Enabled! (WASD to move, Space/Shift for up/down)", 5)
 end
 
--- Универсальная функция перемещения
-local function MoveTo(targetPos, label)
-    if UseTpWalk then
-        if TpWalk(targetPos) then
-            SafeNotify("TpWalking", "Smoothly moving to " .. label, 4)
-        end
-    else
-        if InstantTP(targetPos) then
-            SafeNotify("Teleported", "Instant TP to " .. label, 4)
-        end
-    end
-end
+-- Вкладка настроек полета
+local FlyTab = Window:CreateTab("Free Fly", 4483362458)
+FlyTab:CreateSection("Flight Controls")
 
--- Поиск NPC
+FlyTab:CreateToggle({
+    Name = "Enable Fly",
+    CurrentValue = false,
+    Flag = "FlyToggle",
+    Callback = function(Value)
+        if Value then StartFly() else StopFly() end
+    end,
+})
+
+FlyTab:CreateSlider({
+    Name = "Fly Speed",
+    Range = [50, 300],
+    Increment = 10,
+    Suffix = " studs/s",
+    CurrentValue = 100,
+    Flag = "FlySpeedSlider",
+    Callback = function(Value)
+        flySpeed = Value
+    end,
+})
+
+-- ============================================================
+-- ТЕЛЕПОРТ К NPC (ОСТАВЛЯЕМ ДЛЯ УДОБСТВА)
+-- ============================================================
 local function FindNPC(npcName)
     local foundNpcs = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
@@ -138,73 +151,41 @@ local function FindNPC(npcName)
     return foundNpcs
 end
 
-local function MoveToNPC(npcName)
+local function TeleportToNPC(npcName)
+    local player = game.Players.LocalPlayer
+    if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+
     local foundNpcs = FindNPC(npcName)
     if #foundNpcs == 0 then
-        SafeNotify("NPC Not Found", npcName .. " is not loaded. Move to its Island first!", 6)
+        SafeNotify("NPC Not Found", npcName .. " is not loaded. Use Free Fly to find it!", 5)
         return
     end
 
     local targetNpc = foundNpcs[1]
-    local npcPos = targetNpc:GetPivot().Position
-    local targetPos = npcPos + Vector3.new(0, 0, 8) -- Смещение, чтобы не застрять
-
-    MoveTo(targetPos, npcName)
+    local targetPos = targetNpc:GetPivot().Position + Vector3.new(0, 0, 8)
+    player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
+    SafeNotify("Teleported", "You are next to " .. npcName, 3)
 end
 
--- ============================================================
--- 1. ВКЛАДКА С ОСТРОВАМИ
--- ============================================================
-if CurrentSea == "First Sea" then
-    local IslandTab = Window:CreateTab("Islands", 4483362458)
-    IslandTab:CreateSection("Select destination")
-    
-    local islands = {
-        ["Starter Island"] = Vector3.new(0, 15, 0),
-        ["Marine Fortress"] = Vector3.new(-1000, 15, -400),
-        ["Middle Town"] = Vector3.new(-200, 15, 800),
-        ["Jungle"] = Vector3.new(-1400, 15, 100),
-        ["Pirate Village"] = Vector3.new(-500, 15, 1500),
-        ["Desert"] = Vector3.new(100, 15, 2000),
-        ["Frozen Village"] = Vector3.new(-1000, 15, 2000),
-        ["Skylands"] = Vector3.new(-1500, 500, 1500),
-        ["Prison"] = Vector3.new(5000, 15, 1000),
-        ["Colosseum"] = Vector3.new(-1500, 15, 200),
-        ["Magma Village"] = Vector3.new(-5000, 15, 1000),
-        ["Underwater City"] = Vector3.new(-4000, -200, 1000),
-        ["Fountain City"] = Vector3.new(9000, 200, 3000)
-    }
-
-    for iName, iPos in pairs(islands) do
-        IslandTab:CreateButton({
-            Name = "🏝️ " .. iName,
-            Callback = function() MoveTo(iPos, iName) end
-        })
-    end
-end
-
--- ============================================================
--- 2. ВКЛАДКА С NPC
--- ============================================================
 local function CreateNPCTab(tabName, npcList)
     local Tab = Window:CreateTab(tabName, 4483362458)
-    Tab:CreateSection("Move to NPC")
+    Tab:CreateSection("Instant TP to NPC (If Loaded)")
 
     for _, name in ipairs(npcList) do
         Tab:CreateButton({
             Name = "➡️ " .. name,
-            Callback = function() MoveToNPC(name) end
+            Callback = function() TeleportToNPC(name) end
         })
     end
 end
 
+-- Списки NPC
 local NPC1 = {
     "Boat Dealer", "Blox Fruit Dealer", "Weapon Dealer", "Home Point",
-    "Sword Dealer", "Pirate Recruiter", "Marine Recruiter",
-    "Quest Giver", "Cousin", "Sword Dealer of the West", "Rich Man",
-    "Hasan", "Sick Man", "Ability Teacher", "Sword Dealer of the East",
-    "Parlus", "Advanced Weapon Dealer", "Mad Scientist", "Master Sword Dealer",
-    "Yoshi", "Remove Blox Fruit", "Military Detective", "Living Skeleton",
+    "Sword Dealer", "Pirate Recruiter", "Marine Recruiter", "Quest Giver",
+    "Cousin", "Sword Dealer of the West", "Rich Man", "Hasan", "Sick Man",
+    "Ability Teacher", "Sword Dealer of the East", "Parlus", "Mad Scientist",
+    "Master Sword Dealer", "Yoshi", "Remove Blox Fruit", "Living Skeleton",
     "Mayor", "Water Kung Fu Teacher", "Freezeburg"
 }
 
@@ -226,8 +207,7 @@ local NPC3 = {
     "Death King", "Uzoth", "Gravestone", "Ghost", "Weird Machine",
     "Peanut", "Ice Cream", "Cake", "Chocolate", "Candy Cane",
     "Sick Scientist", "Cake Scientist", "Drip_mama", "Sweet Crafter",
-    "Spy", "Beast Hunter", "Shark Hunter", "Shafi",
-    "Dragon Talon Sage", "Shipwright Teacher"
+    "Spy", "Beast Hunter", "Shark Hunter", "Shafi", "Dragon Talon Sage"
 }
 
 if CurrentSea == "First Sea" then
@@ -238,4 +218,4 @@ elseif CurrentSea == "Third Sea" then
     CreateNPCTab("Third Sea NPCs", NPC3)
 end
 
-SafeNotify("Script Loaded", "Solix-style Mover Ready (TP & TpWalk)", 5)
+SafeNotify("Script Loaded", "Free Fly mode is ready.", 5)
