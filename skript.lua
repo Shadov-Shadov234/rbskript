@@ -1,30 +1,32 @@
 -- ============================================================
--- Blox Fruits NPC Teleporter (исправленная версия)
+-- Blox Fruits NPC Teleporter (Исправленная версия)
 -- Delta Executor | Интерфейс на русском
 -- ============================================================
 
--- Безопасная проверка getgenv (предотвращает ошибку "attempt to call a nil value")
+-- [ШАГ 1] Безопасная проверка getgenv (защита от ошибки "attempt to call a nil value")
 if getgenv then
     getgenv().SecureMode = true
 end
 
--- Загрузка Rayfield с обработкой ошибок
-local success, Rayfield = pcall(function()
-    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- [ШАГ 3] Улучшенная загрузка Rayfield через pcall
+local Rayfield = nil
+local success, err = pcall(function()
+    local source = game:HttpGet('https://sirius.menu/rayfield')
+    Rayfield = loadstring(source)()
 end)
 
-if not success then
-    warn("[Blox Fruits TP] Ошибка загрузки Rayfield. Проверьте интернет или VPN.")
+if not success or not Rayfield then
+    warn("[Blox Fruits TP] Ошибка загрузки Rayfield: " .. tostring(err))
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Ошибка";
-        Text = "Не удалось загрузить интерфейс. Rayfield недоступен.";
+        Text = "Не удалось загрузить интерфейс. Проверьте интернет/VPN.";
         Duration = 8;
     })
     return
 end
 print("[Blox Fruits TP] Rayfield загружен успешно.")
 
--- Определение моря по PlaceId
+-- Определение моря
 local PlaceId = game.PlaceId
 local ТекущееМоре = "Неизвестно"
 
@@ -48,12 +50,12 @@ print("[Blox Fruits TP] Определено море: " .. ТекущееМор
 local Окно = Rayfield:CreateWindow({
     Name = "Blox Fruits | Телепорт к NPC",
     LoadingTitle = "Загрузка...",
-    LoadingSubtitle = "исправленная версия",
+    LoadingSubtitle = "обновлённая версия",
     ConfigurationSaving = { Enabled = false },
     KeySystem = false
 })
 
--- Функция поиска NPC
+-- Функция поиска NPC с расширенной проверкой
 local function НайтиNPC(имяNPC)
     local найденные = {}
     for _, объект in ipairs(workspace:GetDescendants()) do
@@ -85,6 +87,7 @@ local function Телепортироваться(имяNPC)
         return
     end
 
+    -- Берём первый найденный объект с HumanoidRootPart
     local цель = найденные[1]
     local позицияNPC
     local ok, err = pcall(function()
@@ -94,7 +97,7 @@ local function Телепортироваться(имяNPC)
         позицияNPC = цель.HumanoidRootPart.Position
     end
 
-    -- Смещение: 8 стадов по оси Z, чтобы не застрять в NPC
+    -- Смещение: 8 стадов по оси Z (можно изменить)
     local точка = позицияNPC + Vector3.new(0, 0, 8)
 
     игрок.Character.HumanoidRootPart.CFrame = CFrame.new(точка)
@@ -106,7 +109,7 @@ local function Телепортироваться(имяNPC)
     print("[Blox Fruits TP] Телепорт к " .. имяNPC .. " выполнен.")
 end
 
--- Функция создания вкладки
+-- Создание вкладки со списком NPC
 local function СоздатьВкладку(название, список)
     local Вкладка = Окно:CreateTab(название, 4483362458)
     Вкладка:CreateSection("Телепорт к NPC (появитесь рядом)")
@@ -152,7 +155,6 @@ local NPC3 = {
     "Dragon Talon Sage", "Shipwright Teacher"
 }
 
--- Инициализация нужной вкладки
 if ТекущееМоре == "Первое море" then
     СоздатьВкладку("Первое море", NPC1)
 elseif ТекущееМоре == "Второе море" then
