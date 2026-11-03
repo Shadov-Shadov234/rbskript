@@ -1,5 +1,5 @@
 -- ============================================================
--- Blox Fruits NPC Teleporter (Fully English Version)
+-- Blox Fruits NPC Teleporter (Bug-Fixed Version)
 -- ============================================================
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -7,6 +7,18 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 if not Rayfield then
     warn("[Blox Fruits TP] Error: Rayfield failed to load.")
     return
+end
+
+-- Безопасная функция уведомлений (обходим баг Rayfield:Notify)
+local function SafeNotify(title, text, duration)
+    print("[" .. title .. "] " .. text)
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = title,
+            Text = text,
+            Duration = duration or 5
+        })
+    end)
 end
 
 local PlaceId = game.PlaceId
@@ -19,15 +31,8 @@ elseif PlaceId == 4442272183 then
 elseif PlaceId == 7449423635 then
     CurrentSea = "Third Sea"
 else
-    Rayfield:Notify({
-        Title = "Wrong Place",
-        Content = "This script only works in Blox Fruits.",
-        Duration = 8
-    })
-    return
+    SafeNotify("Wrong Place", "This script only works in Blox Fruits.", 8)
 end
-
-print("[Blox Fruits TP] Detected Sea: " .. CurrentSea)
 
 local Window = Rayfield:CreateWindow({
     Name = "Blox Fruits | NPC Teleporter",
@@ -52,34 +57,23 @@ end
 local function TeleportTo(npcName)
     local player = game.Players.LocalPlayer
     if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-        Rayfield:Notify({ Title = "Error", Content = "Player character not found.", Duration = 5 })
+        SafeNotify("Error", "Player character not found.", 5)
         return
     end
 
     local foundNpcs = FindNPC(npcName)
     if #foundNpcs == 0 then
-        Rayfield:Notify({
-            Title = "NPC Not Found",
-            Content = npcName .. " is not in this zone or has been renamed.",
-            Duration = 6
-        })
-        print("[Blox Fruits TP] NPC Not Found: " .. npcName)
+        SafeNotify("NPC Not Found", npcName .. " is not in this zone.", 6)
         return
     end
 
     local targetNpc = foundNpcs[1]
     local npcPos = targetNpc:GetPivot().Position
-    -- Offset by 8 studs to avoid spawning inside the NPC
     local targetPos = npcPos + Vector3.new(0, 0, 8)
 
     player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
     
-    Rayfield:Notify({
-        Title = "Teleported",
-        Content = "You are now next to " .. npcName,
-        Duration = 4
-    })
-    print("[Blox Fruits TP] Teleported to " .. npcName)
+    SafeNotify("Teleported", "You are now next to " .. npcName, 4)
 end
 
 local function CreateNPCTab(tabName, npcList)
@@ -94,7 +88,6 @@ local function CreateNPCTab(tabName, npcList)
     end
 end
 
--- NPC Lists
 local NPC1 = {
     "Boat Dealer", "Blox Fruit Dealer", "Weapon Dealer", "Home Point",
     "Sword Dealer", "Pirate Recruiter", "Marine Recruiter",
@@ -133,11 +126,8 @@ elseif CurrentSea == "Second Sea" then
     CreateNPCTab("Second Sea", NPC2)
 elseif CurrentSea == "Third Sea" then
     CreateNPCTab("Third Sea", NPC3)
+else
+    CreateNPCTab("Unknown Sea", NPC1) -- Если море не распознано, показываем хотя бы первый список
 end
 
-Rayfield:Notify({
-    Title = "Script Loaded",
-    Content = "NPC Teleporter is active for " .. CurrentSea,
-    Duration = 5
-})
-print("[Blox Fruits TP] Script loaded successfully.")
+SafeNotify("Script Loaded", "NPC Teleporter is active for " .. CurrentSea, 5)
