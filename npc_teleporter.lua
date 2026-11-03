@@ -1,5 +1,5 @@
 -- ============================================================
--- Blox Fruits NPC Teleporter (с телепортом по островам)
+-- Blox Fruits NPC & Island Mover (Solix-style TP & TpWalk)
 -- ============================================================
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -8,6 +8,8 @@ if not Rayfield then
     warn("[Blox Fruits TP] Error: Rayfield failed to load.")
     return
 end
+
+local TweenService = game:GetService("TweenService")
 
 local function SafeNotify(title, text, duration)
     print("[" .. title .. "] " .. text)
@@ -34,24 +36,96 @@ else
 end
 
 local Window = Rayfield:CreateWindow({
-    Name = "Blox Fruits | NPC Teleporter",
+    Name = "Blox Fruits | Solix-style Mover",
     LoadingTitle = "Loading...",
-    LoadingSubtitle = "by AI Assistant",
+    LoadingSubtitle = "TP & TpWalk",
     ConfigurationSaving = { Enabled = false },
     KeySystem = false
 })
 
--- ФУНКЦИЯ ТЕЛЕПОРТА НА КООРДИНАТЫ (для островов)
-local function TeleportToCoords(pos)
+-- ============================================================
+-- НАСТРОЙКИ ПЕРЕМЕЩЕНИЯ
+-- ============================================================
+local UseTpWalk = false -- По умолчанию мгновенный телепорт (как в Solix)
+local WalkSpeed = 200   -- Скорость для TpWalk
+
+local SettingsTab = Window:CreateTab("Settings", 4483362458)
+SettingsTab:CreateSection("Movement Mode")
+
+SettingsTab:CreateToggle({
+    Name = "Enable TpWalk (Smooth Fly)",
+    CurrentValue = false,
+    Flag = "TpWalkToggle",
+    Callback = function(Value)
+        UseTpWalk = Value
+        SafeNotify("Mode Changed", UseTpWalk and "TpWalk Enabled" or "Instant TP Enabled", 3)
+    end,
+})
+
+SettingsTab:CreateSlider({
+    Name = "TpWalk Speed",
+    Range = [50, 400],
+    Increment = 10,
+    Suffix = " studs/s",
+    CurrentValue = 200,
+    Flag = "WalkSpeed",
+    Callback = function(Value)
+        WalkSpeed = Value
+    end,
+})
+
+-- ============================================================
+-- ЛОГИКА ПЕРЕМЕЩЕНИЯ
+-- ============================================================
+
+-- Мгновенный телепорт (Solix Style)
+local function InstantTP(targetPos)
     local player = game.Players.LocalPlayer
     if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
         return true
     end
     return false
 end
 
--- ФУНКЦИЯ ПОИСКА NPC
+-- Плавный полёт (TpWalk)
+local function TpWalk(targetPos)
+    local player = game.Players.LocalPlayer
+    if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+        return false
+    end
+
+    local hrp = player.Character.HumanoidRootPart
+    local distance = (hrp.Position - targetPos).Magnitude
+    local travelTime = distance / WalkSpeed
+
+    hrp.Anchored = true
+    local tweenInfo = TweenInfo.new(travelTime, Enum.EasingStyle.Linear)
+    local goal = {CFrame = CFrame.new(targetPos)}
+    local tween = TweenService:Create(hrp, tweenInfo, goal)
+
+    tween:Play()
+    tween.Completed:Connect(function()
+        hrp.Anchored = false
+    end)
+
+    return true
+end
+
+-- Универсальная функция перемещения
+local function MoveTo(targetPos, label)
+    if UseTpWalk then
+        if TpWalk(targetPos) then
+            SafeNotify("TpWalking", "Smoothly moving to " .. label, 4)
+        end
+    else
+        if InstantTP(targetPos) then
+            SafeNotify("Teleported", "Instant TP to " .. label, 4)
+        end
+    end
+end
+
+-- Поиск NPC
 local function FindNPC(npcName)
     local foundNpcs = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
@@ -64,34 +138,26 @@ local function FindNPC(npcName)
     return foundNpcs
 end
 
--- ФУНКЦИЯ ТЕЛЕПОРТА К NPC
-local function TeleportTo(npcName)
-    local player = game.Players.LocalPlayer
-    if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-        SafeNotify("Error", "Player character not found.", 5)
-        return
-    end
-
+local function MoveToNPC(npcName)
     local foundNpcs = FindNPC(npcName)
     if #foundNpcs == 0 then
-        SafeNotify("NPC Not Found", npcName .. " is not loaded. Teleport to its Island first!", 6)
+        SafeNotify("NPC Not Found", npcName .. " is not loaded. Move to its Island first!", 6)
         return
     end
 
     local targetNpc = foundNpcs[1]
     local npcPos = targetNpc:GetPivot().Position
-    local targetPos = npcPos + Vector3.new(0, 0, 8)
+    local targetPos = npcPos + Vector3.new(0, 0, 8) -- Смещение, чтобы не застрять
 
-    player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
-    SafeNotify("Teleported", "You are now next to " .. npcName, 4)
+    MoveTo(targetPos, npcName)
 end
 
 -- ============================================================
--- 1. ВКЛАДКА С ОСТРОВАМИ (Чтобы NPC прогружались)
+-- 1. ВКЛАДКА С ОСТРОВАМИ
 -- ============================================================
 if CurrentSea == "First Sea" then
-    local IslandTab = Window:CreateTab("Islands (Click First)", 4483362458)
-    IslandTab:CreateSection("Teleport to Island first, wait 2s, then click NPC")
+    local IslandTab = Window:CreateTab("Islands", 4483362458)
+    IslandTab:CreateSection("Select destination")
     
     local islands = {
         ["Starter Island"] = Vector3.new(0, 15, 0),
@@ -112,11 +178,7 @@ if CurrentSea == "First Sea" then
     for iName, iPos in pairs(islands) do
         IslandTab:CreateButton({
             Name = "🏝️ " .. iName,
-            Callback = function()
-                if TeleportToCoords(iPos) then
-                    SafeNotify("Teleported", "Arrived at " .. iName, 4)
-                end
-            end
+            Callback = function() MoveTo(iPos, iName) end
         })
     end
 end
@@ -126,12 +188,12 @@ end
 -- ============================================================
 local function CreateNPCTab(tabName, npcList)
     local Tab = Window:CreateTab(tabName, 4483362458)
-    Tab:CreateSection("Teleport to NPC")
+    Tab:CreateSection("Move to NPC")
 
     for _, name in ipairs(npcList) do
         Tab:CreateButton({
             Name = "➡️ " .. name,
-            Callback = function() TeleportTo(name) end
+            Callback = function() MoveToNPC(name) end
         })
     end
 end
@@ -176,4 +238,4 @@ elseif CurrentSea == "Third Sea" then
     CreateNPCTab("Third Sea NPCs", NPC3)
 end
 
-SafeNotify("Script Loaded", "Use the Islands tab first!", 5)
+SafeNotify("Script Loaded", "Solix-style Mover Ready (TP & TpWalk)", 5)
