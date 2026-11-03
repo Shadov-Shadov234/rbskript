@@ -1,18 +1,11 @@
 -- ============================================================
--- Blox Fruits NPC Teleporter (Финальная версия для Delta)
+-- Blox Fruits NPC Teleporter (Максимально прямой метод)
 -- ============================================================
 
--- Загрузка Rayfield без getgenv и лишних проверок на первой строке
-local success, Rayfield = pcall(function()
-    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-end)
+-- Загрузка Rayfield ровно так, как в вашем рабочем тесте
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-if not success or not Rayfield then
-    warn("[Blox Fruits TP] Не удалось загрузить Rayfield.")
-    return
-end
-
--- Определение моря
+-- Дальше идёт наш основной код без изменений
 local PlaceId = game.PlaceId
 local ТекущееМоре = "Неизвестно"
 
@@ -36,7 +29,7 @@ print("[Blox Fruits TP] Определено море: " .. ТекущееМор
 local Окно = Rayfield:CreateWindow({
     Name = "Blox Fruits | Телепорт к NPC",
     LoadingTitle = "Загрузка...",
-    LoadingSubtitle = "финальная версия",
+    LoadingSubtitle = "прямой метод",
     ConfigurationSaving = { Enabled = false },
     KeySystem = false
 })
@@ -106,7 +99,7 @@ local function СоздатьВкладку(название, список)
     end
 end
 
--- Списки NPC
+-- Списки NPC (для примера оставлены основные)
 local NPC1 = {
     "Boat Dealer", "Blox Fruit Dealer", "Weapon Dealer", "Home Point",
     "Sword Dealer", "Pirate Recruiter", "Marine Recruiter",
