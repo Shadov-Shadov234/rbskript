@@ -1,5 +1,5 @@
 -- ============================================================
--- Blox Fruits NPC Teleporter (Bug-Fixed Version)
+-- Blox Fruits NPC Teleporter (с телепортом по островам)
 -- ============================================================
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -9,7 +9,6 @@ if not Rayfield then
     return
 end
 
--- Безопасная функция уведомлений (обходим баг Rayfield:Notify)
 local function SafeNotify(title, text, duration)
     print("[" .. title .. "] " .. text)
     pcall(function()
@@ -42,6 +41,17 @@ local Window = Rayfield:CreateWindow({
     KeySystem = false
 })
 
+-- ФУНКЦИЯ ТЕЛЕПОРТА НА КООРДИНАТЫ (для островов)
+local function TeleportToCoords(pos)
+    local player = game.Players.LocalPlayer
+    if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
+        return true
+    end
+    return false
+end
+
+-- ФУНКЦИЯ ПОИСКА NPC
 local function FindNPC(npcName)
     local foundNpcs = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
@@ -54,6 +64,7 @@ local function FindNPC(npcName)
     return foundNpcs
 end
 
+-- ФУНКЦИЯ ТЕЛЕПОРТА К NPC
 local function TeleportTo(npcName)
     local player = game.Players.LocalPlayer
     if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
@@ -63,7 +74,7 @@ local function TeleportTo(npcName)
 
     local foundNpcs = FindNPC(npcName)
     if #foundNpcs == 0 then
-        SafeNotify("NPC Not Found", npcName .. " is not in this zone.", 6)
+        SafeNotify("NPC Not Found", npcName .. " is not loaded. Teleport to its Island first!", 6)
         return
     end
 
@@ -72,13 +83,50 @@ local function TeleportTo(npcName)
     local targetPos = npcPos + Vector3.new(0, 0, 8)
 
     player.Character.HumanoidRootPart.CFrame = CFrame.new(targetPos)
-    
     SafeNotify("Teleported", "You are now next to " .. npcName, 4)
 end
 
+-- ============================================================
+-- 1. ВКЛАДКА С ОСТРОВАМИ (Чтобы NPC прогружались)
+-- ============================================================
+if CurrentSea == "First Sea" then
+    local IslandTab = Window:CreateTab("Islands (Click First)", 4483362458)
+    IslandTab:CreateSection("Teleport to Island first, wait 2s, then click NPC")
+    
+    local islands = {
+        ["Starter Island"] = Vector3.new(0, 15, 0),
+        ["Marine Fortress"] = Vector3.new(-1000, 15, -400),
+        ["Middle Town"] = Vector3.new(-200, 15, 800),
+        ["Jungle"] = Vector3.new(-1400, 15, 100),
+        ["Pirate Village"] = Vector3.new(-500, 15, 1500),
+        ["Desert"] = Vector3.new(100, 15, 2000),
+        ["Frozen Village"] = Vector3.new(-1000, 15, 2000),
+        ["Skylands"] = Vector3.new(-1500, 500, 1500),
+        ["Prison"] = Vector3.new(5000, 15, 1000),
+        ["Colosseum"] = Vector3.new(-1500, 15, 200),
+        ["Magma Village"] = Vector3.new(-5000, 15, 1000),
+        ["Underwater City"] = Vector3.new(-4000, -200, 1000),
+        ["Fountain City"] = Vector3.new(9000, 200, 3000)
+    }
+
+    for iName, iPos in pairs(islands) do
+        IslandTab:CreateButton({
+            Name = "🏝️ " .. iName,
+            Callback = function()
+                if TeleportToCoords(iPos) then
+                    SafeNotify("Teleported", "Arrived at " .. iName, 4)
+                end
+            end
+        })
+    end
+end
+
+-- ============================================================
+-- 2. ВКЛАДКА С NPC
+-- ============================================================
 local function CreateNPCTab(tabName, npcList)
     local Tab = Window:CreateTab(tabName, 4483362458)
-    Tab:CreateSection("Teleport to NPC (Next to them)")
+    Tab:CreateSection("Teleport to NPC")
 
     for _, name in ipairs(npcList) do
         Tab:CreateButton({
@@ -121,13 +169,11 @@ local NPC3 = {
 }
 
 if CurrentSea == "First Sea" then
-    CreateNPCTab("First Sea", NPC1)
+    CreateNPCTab("First Sea NPCs", NPC1)
 elseif CurrentSea == "Second Sea" then
-    CreateNPCTab("Second Sea", NPC2)
+    CreateNPCTab("Second Sea NPCs", NPC2)
 elseif CurrentSea == "Third Sea" then
-    CreateNPCTab("Third Sea", NPC3)
-else
-    CreateNPCTab("Unknown Sea", NPC1) -- Если море не распознано, показываем хотя бы первый список
+    CreateNPCTab("Third Sea NPCs", NPC3)
 end
 
-SafeNotify("Script Loaded", "NPC Teleporter is active for " .. CurrentSea, 5)
+SafeNotify("Script Loaded", "Use the Islands tab first!", 5)
